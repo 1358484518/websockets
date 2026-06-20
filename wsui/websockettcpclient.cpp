@@ -1,5 +1,6 @@
 #include "websockettcpclient.h"
 #include <QCryptographicHash>
+#include <QRandomGenerator> // 头文件添加这个
 
 #define WS_HOST_SERVER_ADDR "cpmstest.timxon.com"//"ws://cpmstest.timxon.com"//"127.0.0.1"
 #define WS_HOST_SERVER_PORT 8887//8765
@@ -110,15 +111,18 @@ void WebSocketTcpClient::sendUpgradeRequest()
 {
     QString key = "dGhlIHNhbXBsZSBub25jZQ==";
     QString req = QString(
-        "GET /ws HTTP/1.1\r\n"
+        "GET /ws/ocpp/1358484518 HTTP/1.1\r\n"
         "Host: %1:%2\r\n"
         "Upgrade: websocket\r\n"
         "Connection: Upgrade\r\n"
         "Sec-WebSocket-Key: %3\r\n"
-        "Sec-WebSocket-Version: 13\r\n\r\n"
+        "Sec-WebSocket-Version: 13\r\n"
+        "Sec-WebSocket-Protocol: ocpp1.6\r\n"  // 2. 添加OCPP强制子协议头（不加必404）
+        "\r\n"
     ).arg(WS_HOST_SERVER_ADDR).arg(WS_HOST_SERVER_PORT).arg(key);
 
     m_tcpSocket->write(req.toUtf8());
+
 }
 
 void WebSocketTcpClient::onDataReceived()
@@ -128,7 +132,7 @@ void WebSocketTcpClient::onDataReceived()
     if (!m_handshakeDone) {
         qDebug() << "[WS] 握手响应：\n" << data;
 
-        if (data.contains("101 Switching Protocols")) {
+        if (data.contains("HTTP/1.1 101")) {
             QString response = QString::fromUtf8(data);
 
             QString serverAccept;
@@ -153,7 +157,7 @@ void WebSocketTcpClient::onDataReceived()
                 m_handshakeDone = true;
                 m_recvBuffer.clear();
                 resetReconnect();   // ✅ 加这行：连接成功重置重连状态
-                m_timer->start(1000);
+                m_timer->start(5000);
             } else {
                 qDebug() << "[WS] ❌ 认证失败！非法服务器！";
                 qDebug() << "期望：" << realAccept;
@@ -367,13 +371,27 @@ void WebSocketTcpClient::buildAndSendFrame(int opcode, const QByteArray &payload
 // ============================================================
 void WebSocketTcpClient::sendAutoMessage()
 {
-    static int count = 0;
-    count++;
-    QString msg = QString("TCP原生WebSocket消息 %1").arg(count);
-    QByteArray payload = msg.toUtf8();
+//    static int count = 0;
+//    count++;
+//    QString msg = QString("TCP原生WebSocket消息 %1").arg(count);
+//    QByteArray payload = msg.toUtf8();
 
-    buildAndSendFrame(0x01, payload);
-    qDebug() << "[SEND] " << msg;
+//    buildAndSendFrame(0x01, payload);
+//    qDebug() << "[SEND] " << msg;
+    static bool bootSent = false;
+
+    if (!bootSent) {
+        // 连接成功后第一次发送BootNotification注册
+        QString bootMsg = QString(R"([2,"1","BootNotification",{"chargePointVendor":"TIMXON","chargePointModel":"AC_16J_TEST","chargePointSerialNumber":"1358484518","firmwareVersion":"1.0.0"}])");
+        buildAndSendFrame(0x01, bootMsg.toUtf8());
+        qDebug() << "[OCPP] ↑ 发送BootNotification注册";
+        bootSent = true;
+    } else {
+        // 之后每5秒发送一次Heartbeat心跳
+        QString heartbeatMsg = R"([2,"2","Heartbeat",{}])";
+        buildAndSendFrame(0x01, heartbeatMsg.toUtf8());
+        qDebug() << "[OCPP] ↑ 发送Heartbeat心跳";
+    }
 }
 
 // ============================================================
