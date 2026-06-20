@@ -1,24 +1,9 @@
 #include "websockettcpclient.h"
 #include <QCryptographicHash>
 
-//WebSocketTcpClient::WebSocketTcpClient(QObject *parent)
-//    : QObject(parent)
-//    , m_handshakeDone(false)
-//    , m_isFragmented(false)
-//    , m_reconnectInterval(1000)     // 初始重连间隔 1 秒
-//    , m_maxReconnectInterval(30000) // 最大重连间隔 30 秒
-//    , m_autoReconnect(true)         // 默认开启自动重连
-//    , m_manualClose(false)          // 默认不是主动关闭
-//{
-//    m_tcpSocket = new QTcpSocket(this);
-//    m_timer     = new QTimer(this);
+#define WS_HOST_SERVER_ADDR "cpmstest.timxon.com"//"ws://cpmstest.timxon.com"//"127.0.0.1"
+#define WS_HOST_SERVER_PORT 8887//8765
 
-//    connect(m_tcpSocket, &QTcpSocket::connected, this, &WebSocketTcpClient::onTcpConnected);
-//    connect(m_tcpSocket, &QTcpSocket::readyRead, this, &WebSocketTcpClient::onDataReceived);
-//    connect(m_timer, &QTimer::timeout, this, &WebSocketTcpClient::sendAutoMessage);
-
-//    m_tcpSocket->connectToHost("127.0.0.1", 8765);
-//}
 WebSocketTcpClient::WebSocketTcpClient(QObject *parent)
     : QObject(parent)
     , m_handshakeDone(false)
@@ -47,10 +32,10 @@ WebSocketTcpClient::WebSocketTcpClient(QObject *parent)
     connect(m_timer, &QTimer::timeout, this, &WebSocketTcpClient::sendAutoMessage);
     connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
         qDebug() << "[RECONNECT] 尝试重连... 间隔:" << m_reconnectInterval << "ms";
-        m_tcpSocket->connectToHost("127.0.0.1", 8765);
+        m_tcpSocket->connectToHost(WS_HOST_SERVER_ADDR, WS_HOST_SERVER_PORT);
     });
 
-    m_tcpSocket->connectToHost("127.0.0.1", 8765);
+    m_tcpSocket->connectToHost(WS_HOST_SERVER_ADDR, WS_HOST_SERVER_PORT);
 }
 // ============================================================
 // TCP 断开回调（异常断开自动重连）
@@ -125,13 +110,13 @@ void WebSocketTcpClient::sendUpgradeRequest()
 {
     QString key = "dGhlIHNhbXBsZSBub25jZQ==";
     QString req = QString(
-        "GET / HTTP/1.1\r\n"
-        "Host: 127.0.0.1:8765\r\n"
+        "GET /ws HTTP/1.1\r\n"
+        "Host: %1:%2\r\n"
         "Upgrade: websocket\r\n"
         "Connection: Upgrade\r\n"
-        "Sec-WebSocket-Key: %1\r\n"
+        "Sec-WebSocket-Key: %3\r\n"
         "Sec-WebSocket-Version: 13\r\n\r\n"
-    ).arg(key);
+    ).arg(WS_HOST_SERVER_ADDR).arg(WS_HOST_SERVER_PORT).arg(key);
 
     m_tcpSocket->write(req.toUtf8());
 }

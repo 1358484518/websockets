@@ -1,5 +1,5 @@
 #include "widget.h"
-#include "WebSocketTcpClient.h"
+#include "websockettcpclient.h"
 #include <QApplication>
 
 int main(int argc, char *argv[])
