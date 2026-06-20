@@ -169,82 +169,142 @@ void WebSocketTcpClient::onDataReceived()
         parseWebSocketFrame(data);
     }
 }
-
 // ============================================================
 // 解析 WebSocket 帧（完整健壮版：粘包/拆包/分片/全opcode）
 // ============================================================
 void WebSocketTcpClient::parseWebSocketFrame(const QByteArray &data)
 {
+    const int MAX_RECV_BUFFER = 4 * 1024 * 1024;
+    const int MAX_MESSAGE_SIZE = 1 * 1024 * 1024;
+
     m_recvBuffer.append(data);
+
+    // 终极防护：缓冲区超限直接清空，防止内存溢出
+    if (m_recvBuffer.size() > MAX_RECV_BUFFER)
+    {
+        qDebug() << "[WS] ❌ 缓冲区溢出，清空重置";
+        m_recvBuffer.clear();
+        m_fragmentBuffer.clear();
+        m_isFragmented = false;
+        m_tcpSocket->close();
+        return;
+    }
 
     while (m_recvBuffer.size() >= 2)
     {
         const uchar *buf = (const uchar*)m_recvBuffer.constData();
         int pos = 0;
 
-        // ---- 第1字节：FIN + opcode ----
+        // ---- 第1字节：FIN + RSV1-3 + opcode ----
         uchar fin_op = buf[pos++];
         bool fin = (fin_op & 0x80) != 0;
+        uchar rsv = (fin_op & 0x70) >> 4;
         int opcode = fin_op & 0x0F;
+
+        // 协议错误：保留位不为0，清空缓冲区防后续解析错乱
+        if (rsv != 0)
+        {
+            qDebug() << "[WS] ❌ 无效保留位，清空缓冲区";
+            m_recvBuffer.clear();
+            m_fragmentBuffer.clear();
+            m_isFragmented = false;
+            m_tcpSocket->close();
+            return;
+        }
 
         // ---- 第2字节：mask + 基础长度 ----
         uchar mask_len = buf[pos++];
         bool mask = (mask_len & 0x80) != 0;
         quint64 payload_len = mask_len & 0x7F;
 
+        // 协议强制：服务器发送的帧绝对不能带掩码
+        if (mask)
+        {
+            qDebug() << "[WS] ❌ 服务器发送带掩码帧，清空缓冲区";
+            m_recvBuffer.clear();
+            m_fragmentBuffer.clear();
+            m_isFragmented = false;
+            m_tcpSocket->close();
+            return;
+        }
+
         // ---- 扩展长度（126 / 127） ----
-        if (payload_len == 126) {
+        if (payload_len == 126)
+        {
             if (m_recvBuffer.size() < pos + 2) return;
             payload_len = (quint64(buf[pos]) << 8) | buf[pos + 1];
             pos += 2;
         }
-        else if (payload_len == 127) {
+        else if (payload_len == 127)
+        {
             if (m_recvBuffer.size() < pos + 8) return;
             payload_len = 0;
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < 8; i++)
+            {
                 payload_len = (payload_len << 8) | buf[pos + i];
             }
             pos += 8;
         }
 
-        // ---- 掩码 key 占4字节 ----
-        int maskKeyPos = pos;
-        if (mask) {
-            if (m_recvBuffer.size() < pos + 4) return;
-            pos += 4;
+        // 超大帧：提前拦截，清空缓冲区
+        if (payload_len > MAX_MESSAGE_SIZE || payload_len > INT_MAX)
+        {
+            qDebug() << "[WS] ❌ 消息过大，清空缓冲区";
+            m_recvBuffer.clear();
+            m_fragmentBuffer.clear();
+            m_isFragmented = false;
+            m_tcpSocket->close();
+            return;
+        }
+        int payload_len_int = (int)payload_len;
+
+        // 控制帧特殊检查：不能分片且长度≤125
+        bool isControlFrame = (opcode >= 0x08 && opcode <= 0x0F);
+        if (isControlFrame && (!fin || payload_len_int > 125))
+        {
+            qDebug() << "[WS] ❌ 无效控制帧，清空缓冲区";
+            m_recvBuffer.clear();
+            m_fragmentBuffer.clear();
+            m_isFragmented = false;
+            m_tcpSocket->close();
+            return;
         }
 
         // ---- payload 收全了吗？ ----
-        if (m_recvBuffer.size() < pos + (int)payload_len) {
+        if (m_recvBuffer.size() < pos + payload_len_int)
+        {
             return; // 不完整，等下一批
         }
 
         // ---- 提取 payload ----
-        QByteArray payload = m_recvBuffer.mid(pos, (int)payload_len);
+        QByteArray payload = m_recvBuffer.mid(pos, payload_len_int);
 
-        // ---- 掩码解码 ----
-        if (mask) {
-            const uchar *mk = (const uchar*)m_recvBuffer.constData() + maskKeyPos;
-            for (int i = 0; i < (int)payload_len; i++) {
-                payload[i] = payload[i] ^ mk[i % 4];
-            }
-        }
-
-        // ---- 从缓冲区移除已解析的帧 ----
-        m_recvBuffer.remove(0, pos + (int)payload_len);
+        // ---- 从缓冲区移除已解析的帧（精确清理当前帧所有数据） ----
+        m_recvBuffer.remove(0, pos + payload_len_int);
 
         // ==============================================
         // 按 opcode 分发
         // ==============================================
         switch (opcode)
         {
-        case 0x00: { // 续帧
-            if (!m_isFragmented) {
+        case 0x00:
+        { // 续帧，它没有帧类型默认就是0，它的类型由第一帧的帧类型决定，但是ocpp1.6j服务器默认就是文本帧
+            if (!m_isFragmented)
+            {
                 qDebug() << "[WS] ⚠️ 收到意外续帧，忽略";
                 break;
             }
+            // 分片总大小超限，清空分片缓冲区
+            if (m_fragmentBuffer.size() + payload.size() > MAX_MESSAGE_SIZE)
+            {
+                qDebug() << "[WS] ❌ 分片过大，清空分片缓冲区";
+                m_fragmentBuffer.clear();
+                m_isFragmented = false;
+                return;
+            }
             m_fragmentBuffer.append(payload);
-            if (fin) {
+            if (fin)
+            {
                 qDebug() << "[RECV] 分片消息完成，长度:" << m_fragmentBuffer.size();
                 qDebug() << "[RECV] 内容：" << QString::fromUtf8(m_fragmentBuffer);
                 m_fragmentBuffer.clear();
@@ -253,32 +313,64 @@ void WebSocketTcpClient::parseWebSocketFrame(const QByteArray &data)
             break;
         }
 
-        case 0x01: { // 文本帧
-            if (!fin) {
+        case 0x01:
+        { // 文本帧
+            // 交错分片检查：正在分片时收到新消息，协议违规
+            if (m_isFragmented)
+            {
+                qDebug() << "[WS] ❌ 收到交错分片，清空缓冲区";
+                m_recvBuffer.clear();
+                m_fragmentBuffer.clear();
+                m_isFragmented = false;
+                m_tcpSocket->close();
+                return;
+            }
+            if (!fin)
+            {
                 m_isFragmented = true;
                 m_fragmentBuffer = payload;
-            } else {
+            }
+            else
+            {
+                emit sendWebSocketTextFrame(payload);
                 qDebug() << "[RECV] 正确收到：" << QString::fromUtf8(payload);
             }
             break;
         }
 
-        case 0x02: { // 二进制帧
-            if (!fin) {
+        case 0x02:
+        { // 二进制帧
+            // 交错分片检查：正在分片时收到新消息，协议违规
+            if (m_isFragmented)
+            {
+                qDebug() << "[WS] ❌ 收到交错分片，清空缓冲区";
+                m_recvBuffer.clear();
+                m_fragmentBuffer.clear();
+                m_isFragmented = false;
+                m_tcpSocket->close();
+                return;
+            }
+            if (!fin)
+            {
                 m_isFragmented = true;
                 m_fragmentBuffer = payload;
-            } else {
+            }
+            else
+            {
                 qDebug() << "[RECV] 收到二进制数据，长度:" << payload.size();
             }
             break;
         }
 
-        case 0x08: { // 关闭帧
+        case 0x08:
+        { // 关闭帧
             quint16 closeCode = 1000;
             QString closeReason;
-            if (payload.size() >= 2) {
+            if (payload.size() >= 2)
+            {
                 closeCode = (quint8(payload[0]) << 8) | quint8(payload[1]);
-                if (payload.size() > 2) {
+                if (payload.size() > 2)
+                {
                     closeReason = QString::fromUtf8(payload.mid(2));
                 }
             }
@@ -292,18 +384,21 @@ void WebSocketTcpClient::parseWebSocketFrame(const QByteArray &data)
             return;
         }
 
-        case 0x09: { // ping → 回 pong
+        case 0x09:
+        { // ping → 回 pong
             qDebug() << "[WS] 收到 ping，长度:" << payload.size() << "→ 回 pong";
             sendPong(payload);
             break;
         }
 
-        case 0x0A: { // pong
+        case 0x0A:
+        { // pong
             qDebug() << "[WS] 收到 pong，长度:" << payload.size();
             break;
         }
 
-        default: {
+        default:
+        {
             qDebug() << "[WS] ⚠️ 未知 opcode: 0x" << QString::number(opcode, 16) << "，忽略";
             break;
         }
@@ -367,12 +462,12 @@ void WebSocketTcpClient::buildAndSendFrame(int opcode, const QByteArray &payload
 }
 
 // ============================================================
-// 自动发消息（定时器回调）
+// 自动发消息（定时器回调）心跳 和 BootNotification
 // ============================================================
 void WebSocketTcpClient::sendAutoMessage()
 {
-//    static int count = 0;
-//    count++;
+    static int count = 0;
+    count++;
 //    QString msg = QString("TCP原生WebSocket消息 %1").arg(count);
 //    QByteArray payload = msg.toUtf8();
 
@@ -381,14 +476,14 @@ void WebSocketTcpClient::sendAutoMessage()
     static bool bootSent = false;
 
     if (!bootSent) {
-        // 连接成功后第一次发送BootNotification注册
+        // 连接成功后第一次发送BootNotification注册，小括号()只是用来圈定原始字符串的范围，本身不会成为字符串内容的一部分。
         QString bootMsg = QString(R"([2,"1","BootNotification",{"chargePointVendor":"TIMXON","chargePointModel":"AC_16J_TEST","chargePointSerialNumber":"1358484518","firmwareVersion":"1.0.0"}])");
         buildAndSendFrame(0x01, bootMsg.toUtf8());
         qDebug() << "[OCPP] ↑ 发送BootNotification注册";
         bootSent = true;
     } else {
-        // 之后每5秒发送一次Heartbeat心跳
-        QString heartbeatMsg = R"([2,"2","Heartbeat",{}])";
+        // 之后每5秒发送一次Heartbeat心跳，小括号()只是用来圈定原始字符串的范围，本身不会成为字符串内容的一部分。
+        QString heartbeatMsg = QString(R"([2,"%1","Heartbeat",{}])").arg(count);
         buildAndSendFrame(0x01, heartbeatMsg.toUtf8());
         qDebug() << "[OCPP] ↑ 发送Heartbeat心跳";
     }
@@ -437,7 +532,7 @@ bool WebSocketTcpClient::isAutoReconnect() const
 // ============================================================
 // 发送文本消息（槽函数）
 // ============================================================
-void WebSocketTcpClient::sendTextMessage(const QString &text)
+void WebSocketTcpClient::sendTextMessage(QString text)
 {
     if (!m_handshakeDone || m_tcpSocket->state() != QAbstractSocket::ConnectedState) {
         qDebug() << "[WS] ⚠️ 未连接，发送失败";
@@ -449,10 +544,21 @@ void WebSocketTcpClient::sendTextMessage(const QString &text)
     qDebug() << "[SEND] 文本:" << text;
 }
 
+void WebSocketTcpClient::sendTextMessage(QByteArray text)
+{
+    if (!m_handshakeDone || m_tcpSocket->state() != QAbstractSocket::ConnectedState) {
+        qDebug() << "[WS] ⚠️ 未连接，发送失败";
+        return;
+    }
+
+    buildAndSendFrame(0x01, text); // opcode=0x02 二进制帧
+    qDebug() << "[SEND] text数据，长度:" << text.size();
+}
+
 // ============================================================
 // 发送二进制消息（槽函数）
 // ============================================================
-void WebSocketTcpClient::sendBinaryMessage(const QByteArray &data)
+void WebSocketTcpClient::sendBinaryMessage( QByteArray data)
 {
     if (!m_handshakeDone || m_tcpSocket->state() != QAbstractSocket::ConnectedState) {
         qDebug() << "[WS] ⚠️ 未连接，发送失败";

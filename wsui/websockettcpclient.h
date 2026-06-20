@@ -16,8 +16,11 @@ public:
     void setAutoReconnect(bool enable);
     bool isAutoReconnect() const;
 public slots:
-    void sendTextMessage(const QString &text);   // 发送文本消息
-    void sendBinaryMessage(const QByteArray &data); // 发送二进制消息
+    void sendTextMessage( QString text);   // 发送文本消息
+    void sendTextMessage( QByteArray text);   // 发送文本消息
+    void sendBinaryMessage( QByteArray data); // 发送二进制消息
+signals:
+    void sendWebSocketTextFrame(QByteArray data);
 private slots:
     void onTcpConnected();
     void onDataReceived();
