@@ -28,6 +28,7 @@ public:
     bool buildConf();
 
     bool setMsgSeq(quint64 i);
+    bool setMsgSeq(QString s);
     bool setType(quint8 type);
 
     // Request setters

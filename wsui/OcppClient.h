@@ -5,7 +5,8 @@
 #include <QString>
 #include <QByteArray>
 #include <QMap>
-#include "OcppProtocol.h"
+//#include "OcppProtocol.h"
+#include "ocpp/OcppAllMessages.h"
 
 class WebSocketTcpClient;
 
@@ -17,7 +18,7 @@ public:
     void setWebSocketClient(WebSocketTcpClient *wsClient);
 
 Q_SIGNALS:
-    // 业务信号（后面需要再加）
+    // 凡事往外面发送websocket的数据都用它。
     void sigWebSocketTextSend( QByteArray data);
 private slots:
     void onWebSocketTextReceived(QByteArray data);
@@ -34,8 +35,13 @@ private:
 
     // 工具函数
     QString generateMessageId();
+    //取消预约处理
+    void cancelReservation(cJSON *obj);
+    // 解析收到的取消预约请求
 
-    OcppProtocol *m_ocppProtocol;
+    //void
+
+//    OcppProtocol *m_ocppProtocol;
 };
 
 #endif // OCPPCLIENT_H

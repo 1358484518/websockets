@@ -5,7 +5,7 @@
 
 OcppClient::OcppClient(QObject *parent) : QObject(parent)
 {
-    m_ocppProtocol = new OcppProtocol;
+//    m_ocppProtocol = new OcppProtocol;
 }
 //绑定websocket
 void OcppClient::setWebSocketClient(WebSocketTcpClient *wsClient)
@@ -25,10 +25,27 @@ QString OcppClient::generateMessageId()
     m_messageId++;
     return QString::number(m_messageId);
 }
+
+void OcppClient::cancelReservation(cJSON *obj)
+{
+    if(!obj)return;
+    CancelReservation conf;
+    conf.buildConf();
+    QString messageId = cJSON_GetArrayItem(obj, 1)->valuestring;
+    conf.setMsgSeq(messageId);
+    conf.setStatus(CANCEL_ACCEPTED);//同意取消预约
+    char *response = conf.toJson();
+    QByteArray ba = response;
+    qDebug()<<"取消预约"<<ba;
+    emit sigWebSocketTextSend(ba);
+    // 发送响应...
+    free(response);
+}
+
+
 //接收信号槽
 void OcppClient::onWebSocketTextReceived( QByteArray data)
 {
-//    qDebug() << "[OCPP] ↓ 收到:" << data;
     parseOcppMessage(data);
 }
 
@@ -51,11 +68,15 @@ void OcppClient::parseOcppMessage(const QByteArray &data)
     switch (msgTypeId)
     {
     case 2: { // CALL：服务器发的请求
-
+        QString messageId = cJSON_GetArrayItem(root, 2)->valuestring;
+        qDebug()<<"CALL：服务器发的请求"<<messageId;
+        if(messageId == "CancelReservation"){
+            cancelReservation(root);//取消预约
+        }
         break;
     }
 
-    case 3: { // CALLRESULT：对我们请求的响应
+    case 3: { // CALLRESULT：对我们请求的响应 客户端不用处理
 
 
         break;
