@@ -2,7 +2,8 @@
 #define STOPTRANSACTION_H
 
 #include "cJSON.h"
-#include "Authorize.h"
+//#include "Authorize.h"
+#include "OcppAllMessages.h"
 
 //#ifdef QT_CORE_LIB
 //#include <QtGlobal>
@@ -20,14 +21,6 @@
 //    OCPP_CALLERROR = 4
 //};
 
-enum OcppIdTagStatus : quint8
-{
-    IDTAG_ACCEPTED = 0,
-    IDTAG_BLOCKED = 1,
-    IDTAG_EXPIRED = 2,
-    IDTAG_INVALID = 3,
-    IDTAG_CONCURRENT_TX = 4
-};
 
 enum OcppStopReason : quint8
 {

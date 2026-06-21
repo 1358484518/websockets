@@ -43,8 +43,8 @@ enum OcppSetProfileStatus : quint8
 #define RECUR_WEEKLY "Weekly"
 
 // chargingRateUnit
-#define RATE_UNIT_A "A"
-#define RATE_UNIT_W "W"
+//#define RATE_UNIT_A "A"
+//#define RATE_UNIT_W "W"
 
 class SetChargingProfile
 {

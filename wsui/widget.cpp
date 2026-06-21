@@ -18,9 +18,9 @@ Widget::Widget(QWidget *parent)
     layout->addWidget(m_OcppCtrlWidget,2);
     layout->addWidget(m_LogTextEdit);
     setLayout(layout);
-//    m_wsClicent = new WebSocketTcpClient;//自动发送bootnotify和Heartbeat心跳
+    m_wsClicent = new WebSocketTcpClient;//自动发送bootnotify和Heartbeat心跳
     m_ocppClicent = new OcppClient;
-//    m_ocppClicent->setWebSocketClient(m_wsClicent);
+    m_ocppClicent->setWebSocketClient(m_wsClicent);
 
 //    qDebug()<<cJSON_Version();
 }

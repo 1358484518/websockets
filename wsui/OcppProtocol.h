@@ -3,8 +3,9 @@
 
 #include <QObject>
 #include "cJSON.h"
-//#include "ocpp/OcppAllMessages.h"
-class OcppAction;
+#include "ocpp/OcppAllMessages.h"
+
+
 
 class OcppProtocol : public QObject
 {
@@ -13,9 +14,15 @@ public:
     explicit OcppProtocol(QObject *parent = nullptr);
 
 signals:
+//public slots:
+//    void AuthorizeReqSlot();
 private:
-    OcppAction *m_ocppAction;
+
 };
+
+
+
+
 
 
 
