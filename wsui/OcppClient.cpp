@@ -37,7 +37,7 @@ void OcppClient::onWebSocketTextReceived( QByteArray data)
 // ============================================================
 void OcppClient::parseOcppMessage(const QByteArray &data)
 {
-    cJSON *root = cJSON_Parse(data.constData());
+    cJSON *root = cJSON_Parse(data.constData());//在函数最后删除
     if (!root || !cJSON_IsArray(root)) {
         qDebug() << "[OCPP] ❌ 格式错误";
         cJSON_Delete(root);
@@ -46,8 +46,8 @@ void OcppClient::parseOcppMessage(const QByteArray &data)
 
     int msgTypeId = cJSON_GetArrayItem(root, 0)->valueint;
 //    QString messageId = cJSON_GetArrayItem(root, 1)->valuestring;
-    char *payloadStr = cJSON_Print(root);
-    qDebug()<<payloadStr;
+    char *payloadStr = cJSON_PrintUnformatted(root);//在函数最后删除
+    qDebug()<<payloadStr<<__FILE__<<__LINE__;
     switch (msgTypeId)
     {
     case 2: { // CALL：服务器发的请求
