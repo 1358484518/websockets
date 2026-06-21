@@ -21,6 +21,7 @@ public slots:
     void sendBinaryMessage( QByteArray data); // 发送二进制消息
 signals:
     void sendWebSocketTextFrame(QByteArray data);
+    void ocppMessageReceived(QByteArray data);
 private slots:
     void onTcpConnected();
     void onDataReceived();
@@ -53,6 +54,8 @@ private:
     QByteArray  m_recvBuffer;       // 接收缓冲区（解决粘包/拆包）
     QByteArray  m_fragmentBuffer;   // 分片消息组装缓冲区
     bool        m_isFragmented;     // 是否处于分片消息中
+
+
 };
 
 #endif

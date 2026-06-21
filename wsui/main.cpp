@@ -1,5 +1,5 @@
 #include "widget.h"
-#include "websockettcpclient.h"
+
 #include <QApplication>
 
 int main(int argc, char *argv[])
@@ -7,6 +7,6 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
     Widget w;
     w.show();
-    WebSocketTcpClient client;
+//    WebSocketTcpClient client;
     return a.exec();
 }

@@ -37,6 +37,9 @@ WebSocketTcpClient::WebSocketTcpClient(QObject *parent)
     });
 
     m_tcpSocket->connectToHost(WS_HOST_SERVER_ADDR, WS_HOST_SERVER_PORT);
+
+
+
 }
 // ============================================================
 // TCP 断开回调（异常断开自动重连）
@@ -333,7 +336,8 @@ void WebSocketTcpClient::parseWebSocketFrame(const QByteArray &data)
             else
             {
                 emit sendWebSocketTextFrame(payload);
-                qDebug() << "[RECV] 正确收到：" << QString::fromUtf8(payload);
+                emit ocppMessageReceived(payload);
+//                qDebug() << "[RECV] 正确收到：" << QString::fromUtf8(payload);
             }
             break;
         }
@@ -485,7 +489,7 @@ void WebSocketTcpClient::sendAutoMessage()
         // 之后每5秒发送一次Heartbeat心跳，小括号()只是用来圈定原始字符串的范围，本身不会成为字符串内容的一部分。
         QString heartbeatMsg = QString(R"([2,"%1","Heartbeat",{}])").arg(count);
         buildAndSendFrame(0x01, heartbeatMsg.toUtf8());
-        qDebug() << "[OCPP] ↑ 发送Heartbeat心跳";
+//        qDebug() << "[OCPP] ↑ 发送Heartbeat心跳";
     }
 }
 

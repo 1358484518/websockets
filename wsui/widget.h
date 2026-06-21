@@ -2,6 +2,10 @@
 #define WIDGET_H
 
 #include <QWidget>
+#include "websockettcpclient.h"
+#include "OcppClient.h"
+#include "OcppCtrlWidget.h"
+#include "QTextEdit"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Widget; }
@@ -17,5 +21,10 @@ public:
 
 private:
     Ui::Widget *ui;
+    WebSocketTcpClient *m_wsClicent;
+    OcppClient *m_ocppClicent;
+
+    QTextEdit *m_LogTextEdit;
+    OcppCtrlWidget *m_OcppCtrlWidget;
 };
 #endif // WIDGET_H

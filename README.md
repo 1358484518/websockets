@@ -26,9 +26,14 @@
 		).arg(WS_HOST_SERVER_ADDR).arg(WS_HOST_SERVER_PORT).arg(key);
 
 
+4.wsui程序说明
+	4.1 采用分层架构 
+	
+		WebSocketTcpClient 管理 数据收发 心跳 bootnotify
+		OcppClient 处理ocpp业务逻辑
+		OcppProtocol 负责响应和请求协议数据的生成。
 
-
-
-
+5.ocpp1.6J消息
+	
 
 
