@@ -18,7 +18,6 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     OcppClient.cpp \
     OcppCtrlWidget.cpp \
-    OcppProtocol.cpp \
     cJSON.c \
     main.cpp \
     ocpp/Authorize.cpp \
@@ -55,7 +54,6 @@ SOURCES += \
 HEADERS += \
     OcppClient.h \
     OcppCtrlWidget.h \
-    OcppProtocol.h \
     cJSON.h \
     ocpp/Authorize.h \
     ocpp/BootNotification.h \

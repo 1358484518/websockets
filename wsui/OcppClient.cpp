@@ -26,7 +26,7 @@ QString OcppClient::generateMessageId()
     return QString::number(m_messageId);
 }
 
-void OcppClient::cancelReservation(cJSON *obj)
+void OcppClient::CancelReservationConf(cJSON *obj)
 {
     if(!obj)return;
     CancelReservation conf;
@@ -40,6 +40,17 @@ void OcppClient::cancelReservation(cJSON *obj)
     emit sigWebSocketTextSend(ba);
     // 发送响应...
     free(response);
+}
+
+void OcppClient::handleServerCall(const QString &action, cJSON *payload)
+{
+    auto it = m_MapActionConf.find(action);
+    if (it != m_MapActionConf.end()) {
+        (this->*it.value())(payload);  // 调用对应的 Conf 处理函数
+    } else {
+        qWarning() << "[OcppClient] 未支持的服务器请求:" << action;
+        // 可选：回一个 NotImplemented 错误
+    }
 }
 
 
@@ -71,7 +82,7 @@ void OcppClient::parseOcppMessage(const QByteArray &data)
         QString messageId = cJSON_GetArrayItem(root, 2)->valuestring;
         qDebug()<<"CALL：服务器发的请求"<<messageId;
         if(messageId == "CancelReservation"){
-            cancelReservation(root);//取消预约
+            CancelReservationConf(root);//取消预约
         }
         break;
     }
