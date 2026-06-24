@@ -22,8 +22,7 @@ Widget::Widget(QWidget *parent)
     m_wsClicent = new WebSocketTcpClient;//自动发送bootnotify和Heartbeat心跳
     m_ocppClicent = new OcppClient;
     m_ocppClicent->setWebSocketClient(m_wsClicent);
-    connect(m_ocppClicent,SIGNAL(sigWebSocketTextSend(QByteArray)),
-            m_wsClicent,SLOT(sendTextMessage(QByteArray)));
+
 
 //    qDebug()<<cJSON_Version();
 }

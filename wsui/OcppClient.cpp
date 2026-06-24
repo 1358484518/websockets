@@ -81,9 +81,7 @@ void OcppClient::parseOcppMessage(const QByteArray &data)
     case 2: { // CALL：服务器发的请求
         QString messageId = cJSON_GetArrayItem(root, 2)->valuestring;
         qDebug()<<"CALL：服务器发的请求"<<messageId;
-        if(messageId == "CancelReservation"){
-            CancelReservationConf(root);//取消预约
-        }
+        handleServerCall(messageId,root);
         break;
     }
 
