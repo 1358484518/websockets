@@ -284,8 +284,6 @@ bool ChangeAvailability::buildConf()
     return true;
 }
 
-// ===== Common Setters =====
-
 bool ChangeAvailability::setMsgSeq(quint64 i)
 {
     if (!m_root || !cJSON_IsArray(m_root)) return false;
@@ -294,6 +292,28 @@ bool ChangeAvailability::setMsgSeq(quint64 i)
     snprintf(buf, sizeof(buf), "%llu", (unsigned long long)i);
 
     cJSON *newItem = cJSON_CreateString(buf);
+    if (!newItem) return false;
+
+    cJSON *oldItem = cJSON_GetArrayItem(m_root, 1);
+    if (oldItem) {
+        cJSON_ReplaceItemInArray(m_root, 1, newItem);
+    } else {
+        cJSON_InsertItemInArray(m_root, 1, newItem);
+    }
+
+    return true;
+}
+
+// ===== Common Setters =====
+
+bool ChangeAvailability::setMsgSeq(QString i)
+{
+    if (!m_root || !cJSON_IsArray(m_root)) return false;
+
+//    char buf[32];
+//    snprintf(buf, sizeof(buf), "%llu", (unsigned long long)i);
+
+    cJSON *newItem = cJSON_CreateString(i.toUtf8().constData());
     if (!newItem) return false;
 
     cJSON *oldItem = cJSON_GetArrayItem(m_root, 1);

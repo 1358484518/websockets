@@ -77,7 +77,7 @@ private:
     void GetCompositeScheduleConf(cJSON *obj);
     void ClearChargingProfileConf(cJSON *obj);
     void ReserveNowConf(cJSON *obj);
-    void CancelReservationConf(cJSON *obj);
+    void CancelReservationConf(cJSON *obj);//取消预约
 
     // --- 固件与诊断 ---
     void UpdateFirmwareConf(cJSON *obj);
@@ -88,6 +88,8 @@ private:
 private:
     // 收到服务器发来的 CALL（type=2）请求，根据 action 分发到对应 Conf 处理函数
     void handleServerCall(const QString& action, cJSON *payload);
+    //回复不支持的请求
+    void NotImplementedConf(cJSON *obj);
 private:
     // ===== 类型定义 =====
     using HandlerFunc = void (OcppClient::*)(cJSON *obj);
@@ -95,33 +97,33 @@ private:
     // ===== Conf 响应映射表：action字符串 → 处理函数 =====
     QMap<QString, HandlerFunc> m_MapActionConf = {
         // --- 远程控制 ---
-//        { "RemoteStartTransaction",     &OcppClient::RemoteStartTransactionConf     },
-//        { "RemoteStopTransaction",      &OcppClient::RemoteStopTransactionConf      },
+        { "RemoteStartTransaction",     &OcppClient::RemoteStartTransactionConf     },
+        { "RemoteStopTransaction",      &OcppClient::RemoteStopTransactionConf      },
 //        { "UnlockConnector",            &OcppClient::UnlockConnectorConf            },
-//        { "Reset",                      &OcppClient::ResetConf                      },
-//        { "ChangeAvailability",         &OcppClient::ChangeAvailabilityConf         },
+        { "Reset",                      &OcppClient::ResetConf                      },
+        { "ChangeAvailability",         &OcppClient::ChangeAvailabilityConf         },
 //        { "TriggerMessage",             &OcppClient::TriggerMessageConf             },
 
 //        // --- 配置管理 ---
-//        { "GetConfiguration",           &OcppClient::GetConfigurationConf           },
-//        { "ChangeConfiguration",        &OcppClient::ChangeConfigurationConf        },
-//        { "GetLocalListVersion",        &OcppClient::GetLocalListVersionConf        },
-//        { "SendLocalList",              &OcppClient::SendLocalListConf              },
-//        { "ClearCache",                 &OcppClient::ClearCacheConf                 },
+        { "GetConfiguration",           &OcppClient::GetConfigurationConf           },
+        { "ChangeConfiguration",        &OcppClient::ChangeConfigurationConf        },
+        { "GetLocalListVersion",        &OcppClient::GetLocalListVersionConf        },
+        { "SendLocalList",              &OcppClient::SendLocalListConf              },
+        { "ClearCache",                 &OcppClient::ClearCacheConf                 },
 
 //        // --- 充电配置 ---
 //        { "SetChargingProfile",         &OcppClient::SetChargingProfileConf         },
-//        { "GetCompositeSchedule",       &OcppClient::GetCompositeScheduleConf       },
-//        { "ClearChargingProfile",       &OcppClient::ClearChargingProfileConf       },
-//        { "ReserveNow",                 &OcppClient::ReserveNowConf                 },
+        { "GetCompositeSchedule",       &OcppClient::GetCompositeScheduleConf       },
+        { "ClearChargingProfile",       &OcppClient::ClearChargingProfileConf       },
+        { "ReserveNow",                 &OcppClient::ReserveNowConf                 },
         { "CancelReservation",          &OcppClient::CancelReservationConf          },
 
 //        // --- 固件与诊断 ---
 //        { "UpdateFirmware",             &OcppClient::UpdateFirmwareConf             },
-//        { "GetDiagnostics",             &OcppClient::GetDiagnosticsConf             },
+        { "GetDiagnostics",             &OcppClient::GetDiagnosticsConf             },
 
 //        // --- 透传（双向，服务器也能发）---
-//        { "DataTransfer",               &OcppClient::DataTransferConf               },
+        { "DataTransfer",               &OcppClient::DataTransferConf               },
     };
     // ===== Req 请求映射表：action字符串 → 发送/构建函数 =====
     QMap<QString, HandlerFunc> m_MapActionReq = {

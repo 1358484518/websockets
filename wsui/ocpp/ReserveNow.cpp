@@ -280,6 +280,22 @@ bool ReserveNow::setMsgSeq(quint64 i)
     return true;
 }
 
+bool ReserveNow::setMsgSeq(QString i)
+{
+    if (!m_root || !cJSON_IsArray(m_root)) return false;
+
+    cJSON *newItem = cJSON_CreateString(i.toUtf8().constData());
+    if (!newItem) return false;
+
+    cJSON *oldItem = cJSON_GetArrayItem(m_root, 1);
+    if (oldItem) {
+        cJSON_ReplaceItemInArray(m_root, 1, newItem);
+    } else {
+        cJSON_InsertItemInArray(m_root, 1, newItem);
+    }
+
+    return true;
+}
 bool ReserveNow::setType(quint8 type)
 {
     if (!m_root || !cJSON_IsArray(m_root)) return false;

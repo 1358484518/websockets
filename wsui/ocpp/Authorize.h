@@ -3,6 +3,7 @@
 
 #include <QString>
 #include "cJSON.h"
+#include "QByteArray"
 
 // OCPP Message Type
 enum OcppMsgType : quint8 {

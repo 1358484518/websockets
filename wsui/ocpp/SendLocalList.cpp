@@ -187,6 +187,18 @@ bool SendLocalList::setMsgSeq(quint64 i)
     else cJSON_InsertItemInArray(m_root,1,newItem);
     return true;
 }
+bool SendLocalList::setMsgSeq(QString i)
+{
+    if (!m_root || !cJSON_IsArray(m_root)) return false;
+
+    cJSON *newItem = cJSON_CreateString(i.toUtf8().constData());
+    if (!newItem) return false;
+    cJSON *old = cJSON_GetArrayItem(m_root,1);
+    if (old) cJSON_ReplaceItemInArray(m_root,1,newItem);
+    else cJSON_InsertItemInArray(m_root,1,newItem);
+    return true;
+}
+
 bool SendLocalList::setType(quint8 type)
 {
     if (!m_root || (type != OCPP_CALL && type != OCPP_CALLRESULT))

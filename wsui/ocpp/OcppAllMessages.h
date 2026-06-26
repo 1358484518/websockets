@@ -52,6 +52,8 @@
 
 // 错误相关
 #include "OcppError.h"
+
+#include "Reset.h"
 //#include "ocpp_error_constants.h"
 
 // Accepted	✅ 授权通过	刷卡有效，可以开始充电

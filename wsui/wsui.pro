@@ -40,6 +40,7 @@ SOURCES += \
     ocpp/RemoteStartTransaction.cpp \
     ocpp/RemoteStopTransaction.cpp \
     ocpp/ReserveNow.cpp \
+    ocpp/Reset.cpp \
     ocpp/SendLocalList.cpp \
     ocpp/StartTransaction.cpp \
     ocpp/StatusNotification.cpp \
@@ -76,6 +77,7 @@ HEADERS += \
     ocpp/RemoteStartTransaction.h \
     ocpp/RemoteStopTransaction.h \
     ocpp/ReserveNow.h \
+    ocpp/Reset.h \
     ocpp/SendLocalList.h \
     ocpp/SetChargingProfile.h \
     ocpp/StartTransaction.h \
