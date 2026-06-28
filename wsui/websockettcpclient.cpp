@@ -390,7 +390,7 @@ void WebSocketTcpClient::parseWebSocketFrame(const QByteArray &data)
 
         case 0x09:
         { // ping → 回 pong
-            qDebug() << "[WS] 收到 ping，长度:" << payload.size() << "→ 回 pong";
+//            qDebug() << "[WS] 收到 ping，长度:" << payload.size() << "→ 回 pong";
             sendPong(payload);
             break;
         }

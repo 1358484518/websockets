@@ -225,6 +225,21 @@ bool SetChargingProfile::setMsgSeq(quint64 i)
     return true;
 }
 
+
+bool SetChargingProfile::setMsgSeq(QString i)
+{
+    if (!m_root || !cJSON_IsArray(m_root)) return false;
+
+    cJSON *newId = cJSON_CreateString(i.toUtf8().constData());
+    if (!newId) return false;
+    cJSON *old = cJSON_GetArrayItem(m_root, 1);
+    if (old)
+        cJSON_ReplaceItemInArray(m_root, 1, newId);
+    else
+        cJSON_InsertItemInArray(m_root, 1, newId);
+    return true;
+}
+
 bool SetChargingProfile::setType(quint8 type)
 {
     if (!m_root || (type != OCPP_CALL && type != OCPP_CALLRESULT))

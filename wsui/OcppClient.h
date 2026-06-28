@@ -99,10 +99,10 @@ private:
         // --- 远程控制 ---
         { "RemoteStartTransaction",     &OcppClient::RemoteStartTransactionConf     },
         { "RemoteStopTransaction",      &OcppClient::RemoteStopTransactionConf      },
-//        { "UnlockConnector",            &OcppClient::UnlockConnectorConf            },
+        { "UnlockConnector",            &OcppClient::UnlockConnectorConf            },
         { "Reset",                      &OcppClient::ResetConf                      },
         { "ChangeAvailability",         &OcppClient::ChangeAvailabilityConf         },
-//        { "TriggerMessage",             &OcppClient::TriggerMessageConf             },
+        { "TriggerMessage",             &OcppClient::TriggerMessageConf             },
 
 //        // --- 配置管理 ---
         { "GetConfiguration",           &OcppClient::GetConfigurationConf           },
@@ -112,14 +112,14 @@ private:
         { "ClearCache",                 &OcppClient::ClearCacheConf                 },
 
 //        // --- 充电配置 ---
-//        { "SetChargingProfile",         &OcppClient::SetChargingProfileConf         },
+        { "SetChargingProfile",         &OcppClient::SetChargingProfileConf         },
         { "GetCompositeSchedule",       &OcppClient::GetCompositeScheduleConf       },
         { "ClearChargingProfile",       &OcppClient::ClearChargingProfileConf       },
         { "ReserveNow",                 &OcppClient::ReserveNowConf                 },
         { "CancelReservation",          &OcppClient::CancelReservationConf          },
 
 //        // --- 固件与诊断 ---
-//        { "UpdateFirmware",             &OcppClient::UpdateFirmwareConf             },
+        { "UpdateFirmware",             &OcppClient::UpdateFirmwareConf             },
         { "GetDiagnostics",             &OcppClient::GetDiagnosticsConf             },
 
 //        // --- 透传（双向，服务器也能发）---
@@ -131,17 +131,17 @@ private:
 //        { "Authorize",                  &OcppClient::AuthorizeReq                  },
 //        { "StartTransaction",           &OcppClient::StartTransactionReq           },
 //        { "StopTransaction",            &OcppClient::StopTransactionReq            },
-//        { "MeterValues",                &OcppClient::MeterValuesReq                },
-//        { "StatusNotification",         &OcppClient::StatusNotificationReq         },
-//        { "Heartbeat",                  &OcppClient::HeartbeatReq                  },
+        { "MeterValues",                &OcppClient::MeterValuesReq                },
+        { "StatusNotification",         &OcppClient::StatusNotificationReq         },
+        { "Heartbeat",                  &OcppClient::HeartbeatReq                  },
 
 //        // --- 启动与透传 ---
-//        { "BootNotification",           &OcppClient::BootNotificationReq           },
+        { "BootNotification",           &OcppClient::BootNotificationReq           },
 //        { "DataTransfer",               &OcppClient::DataTransferReq               },
 
 //        // --- 状态上报 ---
-//        { "DiagnosticsStatusNotification", &OcppClient::DiagnosticsStatusNotificationReq },
-//        { "FirmwareStatusNotification", &OcppClient::FirmwareStatusNotificationReq },
+        { "DiagnosticsStatusNotification", &OcppClient::DiagnosticsStatusNotificationReq },
+        { "FirmwareStatusNotification", &OcppClient::FirmwareStatusNotificationReq },
     };
 };
 

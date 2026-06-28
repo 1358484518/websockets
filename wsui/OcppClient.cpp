@@ -2,6 +2,7 @@
 #include "QDateTime"
 #include "websockettcpclient.h"
 #include "cJSON.h"
+#include <QUuid>
 #include <QDebug>
 
 #define SEND_CONF_RESPONSE() do {    \
@@ -36,6 +37,69 @@ QString OcppClient::generateMessageId()
     return QString::number(m_messageId);
 }
 
+void OcppClient::MeterValuesReq(cJSON *obj)
+{
+    if(!obj)return;
+    MeterValues conf;
+    conf.buildReq();
+    QString messageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    conf.setMsgSeq(messageId);
+    SEND_CONF_RESPONSE();
+}
+
+void OcppClient::StatusNotificationReq(cJSON *obj)
+{
+    if(!obj)return;
+    StatusNotification conf;
+    conf.buildReq();
+    QString messageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    conf.setMsgSeq(messageId);
+    SEND_CONF_RESPONSE();
+}
+
+void OcppClient::HeartbeatReq(cJSON *obj)
+{
+    if(!obj)return;
+    Heartbeat conf;
+    conf.buildReq();
+    QString messageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    conf.setMsgSeq(messageId);
+    SEND_CONF_RESPONSE();
+}
+
+void OcppClient::BootNotificationReq(cJSON *obj)
+{
+    if(!obj)return;
+    BootNotification conf;
+    conf.buildReq();
+    QString messageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    conf.setMsgSeq(messageId);
+    SEND_CONF_RESPONSE();
+//    QString bootMsg = QString(R"([2,"1","BootNotification",{"chargePointVendor":"TIMXON","chargePointModel":"AC_16J_TEST","chargePointSerialNumber":"1358484518","firmwareVersion":"1.0.0"}])");
+//    qDebug()<<__FUNCTION__<<messageId;
+}
+
+void OcppClient::DiagnosticsStatusNotificationReq(cJSON *obj)
+{
+    if(!obj)return;
+    DiagnosticsStatusNotification conf;
+    conf.buildReq();
+    QString messageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    conf.setMsgSeq(messageId);
+    SEND_CONF_RESPONSE();
+    qDebug()<<__FUNCTION__<<messageId;
+}
+
+void OcppClient::FirmwareStatusNotificationReq(cJSON *obj)
+{
+    if(!obj)return;
+    FirmwareStatusNotification conf;
+    conf.buildReq();
+    QString messageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    conf.setMsgSeq(messageId);
+    SEND_CONF_RESPONSE();
+}
+
 void OcppClient::RemoteStartTransactionConf(cJSON *obj)
 {
     if(!obj)return;
@@ -55,6 +119,17 @@ void OcppClient::RemoteStopTransactionConf(cJSON *obj)
     QString messageId = cJSON_GetArrayItem(obj, 1)->valuestring;
     conf.setMsgSeq(messageId);
     conf.setStatus(REMOTE_STOP_ACCEPTED);
+    SEND_CONF_RESPONSE();
+}
+
+void OcppClient::UnlockConnectorConf(cJSON *obj)
+{
+    if(!obj)return;
+    UnlockConnector conf;
+    conf.buildConf();
+    QString messageId = cJSON_GetArrayItem(obj, 1)->valuestring;
+    conf.setMsgSeq(messageId);
+    conf.setStatus(UNLOCK_UNLOCKED);
     SEND_CONF_RESPONSE();
 }
 
@@ -82,6 +157,49 @@ void OcppClient::ChangeAvailabilityConf(cJSON *obj)
 //    conf.setConnectorId(req.connectorId());
     conf.setStatus(CHANGE_REJECTED);
     SEND_CONF_RESPONSE();
+}
+
+void OcppClient::TriggerMessageConf(cJSON *obj)
+{
+    if(!obj)return;
+    TriggerMessage conf;
+    conf.buildConf();
+    QString messageId = cJSON_GetArrayItem(obj, 1)->valuestring;
+    conf.setMsgSeq(messageId);
+    conf.setStatus(TRIGGER_ACCEPTED);
+    SEND_CONF_RESPONSE();
+
+    QMap<QString, HandlerFunc> tl ={{"BootNotification",&OcppClient::BootNotificationReq},
+                                   {"DiagnosticsStatusNotification",&OcppClient::DiagnosticsStatusNotificationReq},
+                                   {"FirmwareStatusNotification",&OcppClient::FirmwareStatusNotificationReq},
+                                   {"Heartbeat",&OcppClient::HeartbeatReq},
+                                   {"MeterValues",&OcppClient::MeterValuesReq},
+                                   {"StatusNotification",&OcppClient::StatusNotificationReq}};
+    // 2. 取出 payload 对象（数组第 4 项，索引 3）
+    // OCPP CALL 结构: [类型, 消息ID, 动作名, payload]
+
+    cJSON *payload = cJSON_GetArrayItem(obj, 3);
+
+    if (cJSON_IsObject(payload)) {
+
+        // 3. 从 payload 中读取 requestedMessage 字符串
+        cJSON *req_msg_item = cJSON_GetObjectItemCaseSensitive(payload, "requestedMessage");
+
+        if (cJSON_IsString(req_msg_item)) {
+            // 读取到的值
+            const char *requested_message = req_msg_item->valuestring;
+            QString s = requested_message;
+            qDebug()<<s<<__LINE__;
+            HandlerFunc  f = tl.value(s);
+            if (f) {
+                cJSON *json_copy = cJSON_Duplicate(obj, 1);
+                QTimer::singleShot(100, this, [this, f, json_copy]() {
+                    (this->*f)(json_copy);
+                    cJSON_Delete(json_copy);
+                });
+            }
+        }
+     }
 }
 
 void OcppClient::GetConfigurationConf(cJSON *obj)
@@ -140,6 +258,17 @@ void OcppClient::ClearCacheConf(cJSON *obj)
 
 }
 
+void OcppClient::SetChargingProfileConf(cJSON *obj)
+{
+    if(!obj)return;
+    SetChargingProfile conf;
+    conf.buildConf();
+    QString messageId = cJSON_GetArrayItem(obj, 1)->valuestring;
+    conf.setMsgSeq(messageId);
+    conf.setStatus(SET_PROFILE_ACCEPTED);
+    SEND_CONF_RESPONSE();
+}
+
 void OcppClient::GetCompositeScheduleConf(cJSON *obj)
 {
     if(!obj)return;
@@ -183,6 +312,16 @@ void OcppClient::CancelReservationConf(cJSON *obj)
     QString messageId = cJSON_GetArrayItem(obj, 1)->valuestring;
     conf.setMsgSeq(messageId);
     conf.setStatus(CANCEL_ACCEPTED);//取消预约
+    SEND_CONF_RESPONSE();
+}
+
+void OcppClient::UpdateFirmwareConf(cJSON *obj)
+{
+    if(!obj)return;
+    UpdateFirmware conf;
+    conf.buildConf();
+    QString messageId = cJSON_GetArrayItem(obj, 1)->valuestring;
+    conf.setMsgSeq(messageId);
     SEND_CONF_RESPONSE();
 }
 
@@ -249,8 +388,8 @@ void OcppClient::parseOcppMessage(const QByteArray &data)
 
     int msgTypeId = cJSON_GetArrayItem(root, 0)->valueint;
 //    QString messageId = cJSON_GetArrayItem(root, 1)->valuestring;
-    char *payloadStr = cJSON_PrintUnformatted(root);//在函数最后删除
-    qDebug()<<payloadStr<<__FILE__<<__LINE__;
+//    char *payloadStr = cJSON_PrintUnformatted(root);//在函数最后删除
+//    qDebug()<<payloadStr<<__FILE__<<__LINE__;
     switch (msgTypeId)
     {
     case 2: { // CALL：服务器发的请求
@@ -275,6 +414,6 @@ void OcppClient::parseOcppMessage(const QByteArray &data)
         qDebug() << "[OCPP] ❌ 未知消息类型:" << msgTypeId;
         break;
     }
-    free(payloadStr);
+//    free(payloadStr);
     cJSON_Delete(root);
 }
