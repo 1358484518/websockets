@@ -8,7 +8,7 @@
 #define SEND_CONF_RESPONSE() do {    \
     char *response = conf.toJson();  \
     QByteArray ba = response;        \
-    qDebug()<<"回复："<<ba;           \
+    qDebug()<<"回复服务器："<<ba<<__FILE__<<__LINE__;      \
     emit sigWebSocketTextSend(ba);   \
     free(response);                  \
     } while(0)
@@ -17,6 +17,7 @@
 OcppClient::OcppClient(QObject *parent) : QObject(parent)
 {
 //    m_ocppProtocol = new OcppProtocol;
+    m_bootNotificationSent = false;
 }
 //绑定websocket
 void OcppClient::setWebSocketClient(WebSocketTcpClient *wsClient)
@@ -25,10 +26,17 @@ void OcppClient::setWebSocketClient(WebSocketTcpClient *wsClient)
     m_wsClient = wsClient;
     connect(m_wsClient, &WebSocketTcpClient::ocppMessageReceived,
             this, &OcppClient::onWebSocketTextReceived);
+
     connect(this,SIGNAL(sigWebSocketTextSend(QByteArray)),
             m_wsClient,SLOT(sendTextMessage(QByteArray)));
 
+    // 发送：本类的发送信号 → WebSocket 发送槽,绑定信号，收到消息后自己解析
+    connect(this, &OcppClient::sigWebSocketTextSend,
+            this, &OcppClient::onOcppMessageReceived);
 
+    m_heartbeatTimer = new QTimer(this);
+    connect(m_heartbeatTimer, &QTimer::timeout, this, &OcppClient::sendAutoMessage);
+    m_heartbeatTimer->start(1000);
 }
 
 QString OcppClient::generateMessageId()
@@ -98,6 +106,20 @@ void OcppClient::FirmwareStatusNotificationReq(cJSON *obj)
     QString messageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     conf.setMsgSeq(messageId);
     SEND_CONF_RESPONSE();
+}
+
+void OcppClient::BootNotificationConf(cJSON *obj)
+{
+    if(!obj)return;
+
+    BootNotification conf;
+    conf.parse(obj);
+    qint32 interval = conf.interval();
+    if(interval>0)
+        m_heartbeatTimer->start(interval * 1000);
+    m_bootNotificationSent = true;
+
+    qDebug()<<__FUNCTION__<<__LINE__<<interval;
 }
 
 void OcppClient::RemoteStartTransactionConf(cJSON *obj)
@@ -367,11 +389,81 @@ void OcppClient::NotImplementedConf(cJSON *obj)
     SEND_CONF_RESPONSE();
 }
 
+QString OcppClient::findValueByKey(const QString &key)
+{
+    for (const QMap<QString, QString> &item : m_ocpp_req_queue) {
+        if (item.contains(key)) {
+            return item.value(key);
+        }
+    }
+    return QString(); // 没找到返回空字符串
+}
+
 
 //接收信号槽
 void OcppClient::onWebSocketTextReceived( QByteArray data)
 {
     parseOcppMessage(data);
+}
+
+void OcppClient::onOcppMessageReceived(QByteArray data)
+{
+    cJSON *root = cJSON_Parse(data.constData());
+        if (!root || !cJSON_IsArray(root)) {
+            qDebug() << "[OCPP] Invalid message format";
+            if (root) cJSON_Delete(root);
+            return;
+        }
+
+        int arraySize = cJSON_GetArraySize(root);
+        if (arraySize < 2) {
+            qDebug() << "[OCPP] Message too short";
+            cJSON_Delete(root);
+            return;
+        }
+
+        // 消息 ID（第2个元素）
+        cJSON *msgIdJson = cJSON_GetArrayItem(root, 1);
+        QString msgId = msgIdJson && cJSON_IsString(msgIdJson) ? msgIdJson->valuestring : "unknown";
+
+        // 消息类型（第1个元素）
+        cJSON *msgTypeJson = cJSON_GetArrayItem(root, 0);
+        int msgType = msgTypeJson && cJSON_IsNumber(msgTypeJson) ? msgTypeJson->valueint : -1;
+
+        QString action;
+
+        switch (msgType) {
+        case 2: // CALL 请求：第3个元素是动作名
+            if (arraySize >= 3) {
+                cJSON *actionJson = cJSON_GetArrayItem(root, 2);
+                if (actionJson && cJSON_IsString(actionJson)) {
+                    action = actionJson->valuestring;
+                }
+                QMap<QString, QString> req_msg;
+                req_msg[msgId]=action;
+                m_ocpp_req_queue.enqueue(req_msg);
+
+                if(m_ocpp_req_queue.size()>5)
+                    m_ocpp_req_queue.dequeue();
+
+            }
+            qDebug() << "[OCPP] ↓ REQUEST  id:" << msgId << "  action:" << action;
+            break;
+
+        case 3: // CALLRESULT 响应：没有动作名，只有消息ID对应
+//            qDebug() << "[OCPP] ↓ RESPONSE id:" << msgId;
+            break;
+
+        case 4: // CALLERROR 错误
+            qDebug() << "[OCPP] ↓ ERROR    id:" << msgId;
+            break;
+
+        default:
+            qDebug() << "[OCPP] ↓ UNKNOWN  id:" << msgId << "  type:" << msgType;
+            break;
+        }
+
+        cJSON_Delete(root);
 }
 
 // ============================================================
@@ -388,20 +480,26 @@ void OcppClient::parseOcppMessage(const QByteArray &data)
 
     int msgTypeId = cJSON_GetArrayItem(root, 0)->valueint;
 //    QString messageId = cJSON_GetArrayItem(root, 1)->valuestring;
-//    char *payloadStr = cJSON_PrintUnformatted(root);//在函数最后删除
-//    qDebug()<<payloadStr<<__FILE__<<__LINE__;
+    char *payloadStr = cJSON_PrintUnformatted(root);//在函数最后删除
+
     switch (msgTypeId)
     {
     case 2: { // CALL：服务器发的请求
         QString messageId = cJSON_GetArrayItem(root, 2)->valuestring;
-        qDebug()<<"CALL：服务器发的请求"<<messageId;
+        qDebug()<<"服务器请求："<<payloadStr<<__FILE__<<__LINE__;
         handleServerCall(messageId,root);
         break;
     }
 
     case 3: { // CALLRESULT：对我们请求的响应 客户端不用处理
+        QString messageId = cJSON_GetArrayItem(root, 1)->valuestring;
 
+//        qDebug()<<__FUNCTION__<<__LINE__<<cJSON_Print(root);
 
+        QString action_name = findValueByKey(messageId);
+        if(action_name == "BootNotification"){
+            BootNotificationConf(root);
+        }
         break;
     }
 
@@ -414,6 +512,30 @@ void OcppClient::parseOcppMessage(const QByteArray &data)
         qDebug() << "[OCPP] ❌ 未知消息类型:" << msgTypeId;
         break;
     }
-//    free(payloadStr);
+    free(payloadStr);
     cJSON_Delete(root);
+}
+// ============================================================
+// 自动消息（心跳 + BootNotification）
+// ============================================================
+void OcppClient::sendAutoMessage()
+{
+    static int messageId = 2; // 消息ID递增，BootNotification用了1
+
+    if (!m_bootNotificationSent) {
+        QString bootMsg = QString(R"([2,"1","BootNotification",
+                                  {"chargePointVendor":"TIMXON",
+                                  "chargePointModel":"AC_16J_TEST",
+                                  "chargePointSerialNumber":"1358484518",
+                                  "firmwareVersion":"1.0.0"}])");
+
+        emit sigWebSocketTextSend(bootMsg.toUtf8());
+        qDebug() << "[OCPP] Sent BootNotification";
+
+    } else {
+        // 发送 OCPP 标准心跳消息
+        QString heartbeatMsg = QString(R"([2,"%1","Heartbeat",{}])").arg(messageId++);
+        emit sigWebSocketTextSend(heartbeatMsg.toUtf8());
+        qDebug() << "[OCPP] Sent Heartbeat, msgId:" << messageId - 1;
+    }
 }

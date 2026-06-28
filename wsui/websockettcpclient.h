@@ -2,60 +2,75 @@
 #define WEBSOCKETTCP_H
 
 #include <QObject>
-#include <QTcpSocket>
+#include <QWebSocket>
 #include <QTimer>
 #include <QDebug>
+#include <QUrl>
+#include <QNetworkRequest>
 
 class WebSocketTcpClient : public QObject
 {
     Q_OBJECT
-
 public:
     explicit WebSocketTcpClient(QObject *parent = nullptr);
-    // 头文件 public 区加：
+    ~WebSocketTcpClient();
+
     void setAutoReconnect(bool enable);
     bool isAutoReconnect() const;
+    bool isConnected() const;
+
 public slots:
-    void sendTextMessage( QString text);   // 发送文本消息
-    void sendTextMessage( QByteArray text);   // 发送文本消息
-    void sendBinaryMessage( QByteArray data); // 发送二进制消息
+    void sendTextMessage(QString text);
+    void sendTextMessage(QByteArray text);
+    void sendBinaryMessage(QByteArray data);
+
+    // 设置 WebSocket 服务器地址（支持 ws:// 和 wss://）
+    void setServerUrl(const QString &url);
+
+    // 主动连接
+    void open();
+
+    // 主动关闭
+    void close();
+
+    // 设置心跳间隔（单位：秒）
+//    void setHeartbeatInterval(int seconds);
 signals:
+    // 原有信号（保持兼容）
     void sendWebSocketTextFrame(QByteArray data);
     void ocppMessageReceived(QByteArray data);
+
+    // 新增：连接状态变化
+    void connected();
+    void disconnected();
+
 private slots:
-    void onTcpConnected();
-    void onDataReceived();
-    void sendUpgradeRequest();
-    void parseWebSocketFrame(const QByteArray &data);
-    void sendAutoMessage();
-    void sendMessage(const QByteArray &data);
-    void closeWebSocket();
-private slots:
-    void onTcpDisconnected();   // TCP断开回调
+    void onConnected();
+    void onDisconnected();
+    void onTextMessageReceived(const QString &message);
+    void onBinaryMessageReceived(const QByteArray &message);
+    void onError(QAbstractSocket::SocketError error);
+    void onSslErrors(const QList<QSslError> &errors);
+//    void sendAutoMessage();
+    void performReconnect();
 
 private:
-    void startReconnect();      // 开始重连
-    void stopReconnect();       // 停止重连
-    void resetReconnect();      // 重连成功后重置
+    void startReconnect();
+    void stopReconnect();
+    void resetReconnect();
 
-    QTimer  *m_reconnectTimer;  // 重连定时器
-    int      m_reconnectInterval;   // 当前重连间隔（毫秒）
-    int      m_maxReconnectInterval; // 最大重连间隔
-    bool     m_autoReconnect;   // 是否启用自动重连
-    bool     m_manualClose;     // 是否主动关闭（主动关闭不重连）
-private:
-    void sendPong(const QByteArray &payload);   // 回 pong
-    void buildAndSendFrame(int opcode, const QByteArray &payload); // 通用帧组装
+    QWebSocket *m_webSocket;
+//    QTimer     *m_heartbeatTimer;
+    QTimer     *m_reconnectTimer;
 
-    QTcpSocket *m_tcpSocket;
-    QTimer     *m_timer;
-    bool        m_handshakeDone;
+    QUrl       m_serverUrl;
+    bool       m_autoReconnect;
+    bool       m_manualClose;
+    int        m_reconnectInterval;
+    int        m_maxReconnectInterval;
 
-    QByteArray  m_recvBuffer;       // 接收缓冲区（解决粘包/拆包）
-    QByteArray  m_fragmentBuffer;   // 分片消息组装缓冲区
-    bool        m_isFragmented;     // 是否处于分片消息中
-
-
+    bool       m_bootNotificationSent;
+    int        m_heartbeatInterval;
 };
 
-#endif
+#endif // WEBSOCKETTCP_H

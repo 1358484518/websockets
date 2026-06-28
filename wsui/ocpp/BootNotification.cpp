@@ -660,7 +660,7 @@ bool BootNotification::parse(cJSON *obj)
     }
 
     clear();
-    m_root = obj;
+    m_root = cJSON_Duplicate(obj, 1);  // 深拷贝，第二个参数1=递归拷贝所有子节点
     m_type = type;
     m_status = status;
     m_interval = interval;

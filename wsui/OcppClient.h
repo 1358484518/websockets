@@ -5,6 +5,8 @@
 #include <QString>
 #include <QByteArray>
 #include <QMap>
+#include <QTimer>
+#include <QQueue>
 
 #include "ocpp/OcppAllMessages.h"
 
@@ -22,7 +24,9 @@ Q_SIGNALS:
     void sigWebSocketTextSend( QByteArray data);
 private slots:
     void onWebSocketTextReceived(QByteArray data);
-
+    // 接收槽：解析 OCPP 消息并打印
+    void onOcppMessageReceived(QByteArray data);
+    void sendAutoMessage();
 private:
     WebSocketTcpClient *m_wsClient = nullptr;
     int m_messageId = 0;
@@ -54,6 +58,8 @@ private:
     // --- 状态上报 ---
     void DiagnosticsStatusNotificationReq(cJSON *obj);
     void FirmwareStatusNotificationReq(cJSON *obj);
+private:
+    void BootNotificationConf(cJSON *obj);
 private:
     // ===== CS → CP 下发请求：处理后回 Conf 19个 DataTransf 是双向=====
 
@@ -124,6 +130,7 @@ private:
 
 //        // --- 透传（双向，服务器也能发）---
         { "DataTransfer",               &OcppClient::DataTransferConf               },
+
     };
     // ===== Req 请求映射表：action字符串 → 发送/构建函数 =====
     QMap<QString, HandlerFunc> m_MapActionReq = {
@@ -143,6 +150,15 @@ private:
         { "DiagnosticsStatusNotification", &OcppClient::DiagnosticsStatusNotificationReq },
         { "FirmwareStatusNotification", &OcppClient::FirmwareStatusNotificationReq },
     };
+
+private:
+    quint32 m_bootNotificationSent;
+    QTimer     *m_heartbeatTimer;
+
+    QQueue<QMap<QString, QString>> m_ocpp_req_queue;
+private:
+    // 查找队列中是否包含指定 key，找到返回对应的值，没找到返回空字符串
+    QString findValueByKey(const QString &key);
 };
 
 #endif // OCPPCLIENT_H
