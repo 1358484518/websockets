@@ -23,9 +23,9 @@ Q_SIGNALS:
     // 凡事往外面发送websocket的数据都用它。
     void sigWebSocketTextSend( QByteArray data);
 private slots:
-    void onWebSocketTextReceived(QByteArray data);
+    void onWebSocketTextReceived(QByteArray data);//接收websocket的消息
     // 接收槽：解析 OCPP 消息并打印
-    void onOcppMessageReceived(QByteArray data);
+    void onOcppMessageReceived(QByteArray data);//接收本地消息 sigWebSocketTextSend
     void sendAutoMessage();
 private:
     WebSocketTcpClient *m_wsClient = nullptr;

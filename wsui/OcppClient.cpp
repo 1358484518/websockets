@@ -115,8 +115,10 @@ void OcppClient::BootNotificationConf(cJSON *obj)
     BootNotification conf;
     conf.parse(obj);
     qint32 interval = conf.interval();
-    if(interval>0)
+    if(interval>0){
         m_heartbeatTimer->start(interval * 1000);
+        qDebug()<<"修改心跳间隔"<<interval;
+    }
     m_bootNotificationSent = true;
 
     qDebug()<<__FUNCTION__<<__LINE__<<interval;
@@ -500,6 +502,7 @@ void OcppClient::parseOcppMessage(const QByteArray &data)
         if(action_name == "BootNotification"){
             BootNotificationConf(root);
         }
+        qDebug()<<"服务器响应："<<payloadStr<<__FILE__<<__LINE__;
         break;
     }
 
@@ -530,12 +533,12 @@ void OcppClient::sendAutoMessage()
                                   "firmwareVersion":"1.0.0"}])");
 
         emit sigWebSocketTextSend(bootMsg.toUtf8());
-        qDebug() << "[OCPP] Sent BootNotification";
+//        qDebug() << "[OCPP] Sent BootNotification";
 
     } else {
         // 发送 OCPP 标准心跳消息
         QString heartbeatMsg = QString(R"([2,"%1","Heartbeat",{}])").arg(messageId++);
         emit sigWebSocketTextSend(heartbeatMsg.toUtf8());
-        qDebug() << "[OCPP] Sent Heartbeat, msgId:" << messageId - 1;
+//        qDebug() << "[OCPP] Sent Heartbeat, msgId:" << messageId - 1;
     }
 }
